@@ -8,7 +8,7 @@ OpenAI API を使った日英翻訳デスクトップアプリ（macOS 向け）
 - Vite（ビルド）
 - TailwindCSS + shadcn/ui（UI）
 - OpenAI API（翻訳）
-- [Kokoro TTS](https://github.com/niclas-peschke/kokoro-js)（音声合成）
+- [Kokoro TTS](https://github.com/hexgrad/kokoro)（音声合成）
 
 ## セットアップ
 
