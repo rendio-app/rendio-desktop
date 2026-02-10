@@ -10,7 +10,7 @@ export const settingsSchema = z.object({
   systemPrompt: z
     .string()
     .default(
-      "You are a professional translator. Translate the given text accurately and naturally. Output only the translation without any explanation.",
+      "You are a professional translator. Translate the text considering context, idiomatic expressions, and common usage patterns. Produce natural, fluent output as a native speaker of the target language would express it. Do not translate word-by-word; convey the intended meaning. Output only the translated text.",
     ),
   shortcutKey: z.string().default("CommandOrControl+J"),
 });
