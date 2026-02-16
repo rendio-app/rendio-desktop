@@ -15,16 +15,6 @@ const KEY_LABELS: Record<string, string> = {
   " ": "Space",
 };
 
-const MODIFIER_KEYS = new Set([
-  "Meta",
-  "Control",
-  "Alt",
-  "Shift",
-  "CapsLock",
-  "Tab",
-  "Escape",
-]);
-
 const MODIFIER_ORDER = ["Control", "Alt", "Shift", "Meta"] as const;
 
 const ACCELERATOR_LABELS: Record<string, string> = {
@@ -40,10 +30,6 @@ const ACCELERATOR_LABELS: Record<string, string> = {
 
 export function getKeyLabel(key: string): string {
   return KEY_LABELS[key] ?? key;
-}
-
-export function isModifierKey(key: string): boolean {
-  return MODIFIER_KEYS.has(key);
 }
 
 export function parseAccelerator(accelerator: string): string[] {
