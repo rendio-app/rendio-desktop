@@ -1,5 +1,14 @@
-import { Eye, EyeOff, Monitor, Moon, RefreshCw, Sun } from "lucide-react";
+import {
+  Check,
+  Eye,
+  EyeOff,
+  Monitor,
+  Moon,
+  RefreshCw,
+  Sun,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useColorTheme } from "@/components/color-theme-provider";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { BASE_THEME_NAMES, COLOR_THEMES } from "@/lib/color-themes";
 import {
   getKeyLabel,
   MODIFIER_ORDER,
@@ -63,6 +73,7 @@ export function SettingsDialog({
   onSaved,
 }: SettingsDialogProps) {
   const { theme, setTheme } = useTheme();
+  const { colorTheme, setColorTheme } = useColorTheme();
   const [settings, setSettings] = useState<Settings>({
     apiEndpoint: "https://api.openai.com/v1/chat/completions",
     apiKey: "",
@@ -196,7 +207,7 @@ export function SettingsDialog({
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1">
           <div className="grid gap-2">
             <Label>Theme</Label>
             <Select value={theme} onValueChange={setTheme}>
@@ -218,6 +229,44 @@ export function SettingsDialog({
                 </SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Color</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {COLOR_THEMES.map((t) => {
+                const isBase = BASE_THEME_NAMES.includes(t.name);
+                const isActive = colorTheme === t.name;
+                const dotColor = isBase
+                  ? t.cssVars.light["muted-foreground"]
+                  : t.cssVars.light.primary;
+                return (
+                  <button
+                    key={t.name}
+                    type="button"
+                    title={t.title}
+                    className={`flex size-6 items-center justify-center rounded-full transition-shadow ${
+                      isActive
+                        ? "ring-primary ring-2 ring-offset-2 ring-offset-background"
+                        : ""
+                    }`}
+                    style={{ backgroundColor: dotColor }}
+                    onClick={() => setColorTheme(t.name)}
+                  >
+                    {isActive && (
+                      <Check
+                        className="size-3.5"
+                        style={{
+                          color: isBase
+                            ? t.cssVars.light.background
+                            : t.cssVars.light["primary-foreground"],
+                        }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="grid gap-2">

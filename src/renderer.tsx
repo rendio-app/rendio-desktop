@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { ColorThemeProvider } from "@/components/color-theme-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import App from "./App";
 import "./index.css";
@@ -8,7 +9,9 @@ if (container) {
   const root = createRoot(container);
   root.render(
     <ThemeProvider defaultTheme="system" storageKey="rendio-theme">
-      <App />
+      <ColorThemeProvider storageKey="rendio-color-theme">
+        <App />
+      </ColorThemeProvider>
     </ThemeProvider>,
   );
 }
