@@ -1,15 +1,13 @@
-import { useState } from "react";
-import { SettingsView } from "@/components/SettingsView";
 import { TranslateView } from "@/components/TranslateView";
+import { Toaster } from "@/components/ui/sonner";
 
 function App() {
-  const [view, setView] = useState<"translate" | "settings">("translate");
-
-  if (view === "settings") {
-    return <SettingsView onBack={() => setView("translate")} />;
-  }
-
-  return <TranslateView onOpenSettings={() => setView("settings")} />;
+  return (
+    <>
+      <TranslateView />
+      <Toaster />
+    </>
+  );
 }
 
 export default App;

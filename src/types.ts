@@ -36,4 +36,10 @@ export const IpcChannels = {
   CLIPBOARD_COPY: "clipboard:copy",
   SHORTCUT_SUSPEND: "shortcut:suspend",
   SHORTCUT_RESUME: "shortcut:resume",
+  MODELS_GET: "models:get",
 } as const;
+
+export type ModelInfo = {
+  id: string;
+  owned_by: string;
+};

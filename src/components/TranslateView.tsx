@@ -1,6 +1,7 @@
 import { ArrowRightLeft, Copy, Settings } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import logoUrl from "@/assets/logo.svg";
+import { toast } from "sonner";
+import { SettingsDialog } from "@/components/SettingsView";
 import { SpeakButton } from "@/components/SpeakButton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,16 +14,13 @@ function detectDirection(text: string): TranslationDirection {
   return JAPANESE_REGEX.test(text) ? "ja-to-en" : "en-to-ja";
 }
 
-interface TranslateViewProps {
-  onOpenSettings: () => void;
-}
-
-export function TranslateView({ onOpenSettings }: TranslateViewProps) {
+export function TranslateView() {
   const [sourceText, setSourceText] = useState("");
   const [resultText, setResultText] = useState("");
   const [direction, setDirection] = useState<TranslationDirection>("en-to-ja");
   const [isTranslating, setIsTranslating] = useState(false);
   const [error, setError] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const resultRef = useRef("");
   const tts = useTTS();
 
@@ -106,13 +104,6 @@ export function TranslateView({ onOpenSettings }: TranslateViewProps) {
 
   return (
     <div className="flex h-screen flex-col p-4 gap-3">
-      <div className="flex items-center justify-between">
-        <img src={logoUrl} alt="Rendio" className="h-4" />
-        <Button variant="ghost" size="icon" onClick={onOpenSettings}>
-          <Settings className="size-5" />
-        </Button>
-      </div>
-
       <Textarea
         placeholder="Enter text to translate... (Cmd+Enter to translate)"
         value={sourceText}
@@ -142,7 +133,7 @@ export function TranslateView({ onOpenSettings }: TranslateViewProps) {
             <button
               type="button"
               className="underline"
-              onClick={onOpenSettings}
+              onClick={() => setSettingsOpen(true)}
             >
               Open Settings
             </button>
@@ -151,36 +142,53 @@ export function TranslateView({ onOpenSettings }: TranslateViewProps) {
       )}
 
       <div className="flex gap-2">
-        {isTranslating ? (
-          <Button
-            variant="destructive"
-            className="flex-1"
-            onClick={handleCancel}
-          >
-            Cancel
-          </Button>
-        ) : (
-          <Button
-            className="flex-1"
-            onClick={() => startTranslation()}
-            disabled={!sourceText.trim()}
-          >
-            Translate
-          </Button>
-        )}
-        <SpeakButton
-          state={tts.state}
-          onPlay={() =>
-            tts.play(direction === "en-to-ja" ? sourceText : resultText)
-          }
-          onStop={tts.stop}
-          disabled={direction === "en-to-ja" ? !sourceText.trim() : !resultText}
-        />
-        <Button variant="outline" onClick={handleCopy} disabled={!resultText}>
-          <Copy className="size-4" />
-          Copy
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setSettingsOpen(true)}
+        >
+          <Settings className="size-5" />
         </Button>
+        <div className="flex flex-1 gap-2">
+          {isTranslating ? (
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={handleCancel}
+            >
+              Cancel
+            </Button>
+          ) : (
+            <Button
+              className="flex-1"
+              onClick={() => startTranslation()}
+              disabled={!sourceText.trim()}
+            >
+              Translate
+            </Button>
+          )}
+          <SpeakButton
+            state={tts.state}
+            onPlay={() =>
+              tts.play(direction === "en-to-ja" ? sourceText : resultText)
+            }
+            onStop={tts.stop}
+            disabled={
+              direction === "en-to-ja" ? !sourceText.trim() : !resultText
+            }
+          />
+          <Button variant="outline" onClick={handleCopy} disabled={!resultText}>
+            <Copy className="size-4" />
+            Copy
+          </Button>
+        </div>
       </div>
+
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onSaved={() => toast.success("Settings saved")}
+      />
     </div>
   );
 }

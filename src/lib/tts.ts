@@ -1,9 +1,8 @@
-import { RawAudio } from "@huggingface/transformers";
 import { KokoroTTS, TextSplitterStream } from "kokoro-js";
 
 const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
 const DEFAULT_VOICE = "af_heart";
-const SAMPLE_RATE = 24000;
+export const SAMPLE_RATE = 24000;
 
 let tts: KokoroTTS | null = null;
 let initPromise: Promise<KokoroTTS> | null = null;
@@ -45,36 +44,36 @@ function getTTS(): Promise<KokoroTTS> {
 // Preload model on module import
 getTTS().catch(() => {});
 
-export async function speak(text: string): Promise<ArrayBuffer> {
-  const engine = await getTTS();
+export interface TTSStream {
+  stream: AsyncGenerator<Float32Array>;
+  abort: () => void;
+}
 
-  // Work around kokoro-js v1.2.1 bug: stream(string) creates a
-  // TextSplitterStream internally but never calls close(), causing
-  // the for-await loop to hang forever. We create the splitter
-  // ourselves and call close() explicitly.
-  const splitter = new TextSplitterStream();
-  const stream = engine.stream(splitter, { voice: DEFAULT_VOICE });
+export function createTTSStream(text: string): TTSStream {
+  let aborted = false;
 
-  splitter.push(text);
-  splitter.close();
+  const abort = () => {
+    aborted = true;
+  };
 
-  const chunks: Float32Array[] = [];
-  for await (const { audio } of stream) {
-    chunks.push(audio.audio);
-  }
+  const stream = (async function* () {
+    const engine = await getTTS();
 
-  if (chunks.length === 0) {
-    throw new Error("No audio generated");
-  }
+    // Work around kokoro-js v1.2.1 bug: stream(string) creates a
+    // TextSplitterStream internally but never calls close(), causing
+    // the for-await loop to hang forever. We create the splitter
+    // ourselves and call close() explicitly.
+    const splitter = new TextSplitterStream();
+    const audioStream = engine.stream(splitter, { voice: DEFAULT_VOICE });
 
-  // Concatenate all chunks into a single waveform
-  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
-  const waveform = new Float32Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    waveform.set(chunk, offset);
-    offset += chunk.length;
-  }
+    splitter.push(text);
+    splitter.close();
 
-  return new RawAudio(waveform, SAMPLE_RATE).toWav();
+    for await (const { audio } of audioStream) {
+      if (aborted) return;
+      yield audio.audio;
+    }
+  })();
+
+  return { stream, abort };
 }

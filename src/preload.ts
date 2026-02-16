@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { Settings, TranslateRequest } from "./types";
+import type { ModelInfo, Settings, TranslateRequest } from "./types";
 import { IpcChannels } from "./types";
 
 const electronAPI = {
@@ -14,6 +14,10 @@ const electronAPI = {
     ipcRenderer.invoke(IpcChannels.CLIPBOARD_COPY, text),
   shortcutSuspend: () => ipcRenderer.invoke(IpcChannels.SHORTCUT_SUSPEND),
   shortcutResume: () => ipcRenderer.invoke(IpcChannels.SHORTCUT_RESUME),
+  modelsGet: (apiEndpoint: string, apiKey: string) =>
+    ipcRenderer.invoke(IpcChannels.MODELS_GET, apiEndpoint, apiKey) as Promise<
+      ModelInfo[]
+    >,
 
   onTranslateChunk: (callback: (chunk: string) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, chunk: string) =>
