@@ -201,7 +201,7 @@ export function SettingsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         aria-describedby={undefined}
-        className="flex max-h-[80vh] flex-col sm:max-w-lg"
+        className="flex max-h-[88vh] flex-col sm:max-w-lg"
       >
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
@@ -245,11 +245,10 @@ export function SettingsDialog({
                     key={t.name}
                     type="button"
                     title={t.title}
-                    className={`flex size-6 items-center justify-center rounded-full transition-shadow ${
-                      isActive
-                        ? "ring-primary ring-2 ring-offset-2 ring-offset-background"
-                        : ""
-                    }`}
+                    className={`flex size-6 items-center justify-center rounded-full transition-shadow ${isActive
+                      ? "ring-primary ring-2 ring-offset-2 ring-offset-background"
+                      : ""
+                      }`}
                     style={{ backgroundColor: dotColor }}
                     onClick={() => setColorTheme(t.name)}
                   >
@@ -380,7 +379,10 @@ export function SettingsDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label>Shortcut Key</Label>
+            <Label>Instant Translate Shortcut Key</Label>
+            <p className="text-muted-foreground text-sm">
+              Instantly translate selected text from any application.
+            </p>
             <div className="flex items-center gap-2">
               <div className="border-input flex h-9 flex-1 items-center rounded-md border px-3">
                 {recording ? (
