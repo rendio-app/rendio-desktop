@@ -13,6 +13,7 @@ export const settingsSchema = z.object({
       "You are a professional translator. Translate the text considering context, idiomatic expressions, and common usage patterns. Produce natural, fluent output as a native speaker of the target language would express it. Do not translate word-by-word; convey the intended meaning. Output only the translated text.",
     ),
   shortcutKey: z.string().default("CommandOrControl+J"),
+  ttsSpeed: z.number().default(1),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;

@@ -22,7 +22,14 @@ export function TranslateView() {
   const [error, setError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const resultRef = useRef("");
+  const ttsSpeedRef = useRef(1);
   const tts = useTTS();
+
+  useEffect(() => {
+    window.electronAPI.settingsGet().then((s) => {
+      ttsSpeedRef.current = s.ttsSpeed;
+    });
+  }, []);
 
   const startTranslation = useCallback(
     (text?: string) => {
@@ -75,6 +82,18 @@ export function TranslateView() {
       unsubError();
       unsubSelection();
     };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        setSettingsOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   const handleCancel = () => {
@@ -170,7 +189,10 @@ export function TranslateView() {
           <SpeakButton
             state={tts.state}
             onPlay={() =>
-              tts.play(direction === "en-to-ja" ? sourceText : resultText)
+              tts.play(
+                direction === "en-to-ja" ? sourceText : resultText,
+                ttsSpeedRef.current,
+              )
             }
             onStop={tts.stop}
             disabled={
@@ -187,7 +209,12 @@ export function TranslateView() {
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
-        onSaved={() => toast.success("Settings saved")}
+        onSaved={() => {
+          window.electronAPI.settingsGet().then((s) => {
+            ttsSpeedRef.current = s.ttsSpeed;
+          });
+          toast.success("Settings saved");
+        }}
       />
     </div>
   );

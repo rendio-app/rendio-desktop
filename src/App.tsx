@@ -5,7 +5,7 @@ function App() {
   return (
     <>
       <TranslateView />
-      <Toaster />
+      <Toaster position="top-right" />
     </>
   );
 }

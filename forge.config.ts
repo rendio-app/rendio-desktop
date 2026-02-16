@@ -14,9 +14,14 @@ const config: ForgeConfig = {
     asar: true,
     icon: "./icon",
     appBundleId: "pro.rendio.rendio",
+    extraResource: [
+      "./src/assets/iconTemplate.png",
+      "./src/assets/iconTemplate@2x.png",
+    ],
     extendInfo: {
       NSAppleEventsUsageDescription:
         "This app needs to control System Events to capture selected text.",
+      LSUIElement: true,
     },
   },
   hooks: {

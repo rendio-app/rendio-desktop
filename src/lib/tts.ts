@@ -49,7 +49,7 @@ export interface TTSStream {
   abort: () => void;
 }
 
-export function createTTSStream(text: string): TTSStream {
+export function createTTSStream(text: string, speed = 1): TTSStream {
   let aborted = false;
 
   const abort = () => {
@@ -64,7 +64,10 @@ export function createTTSStream(text: string): TTSStream {
     // the for-await loop to hang forever. We create the splitter
     // ourselves and call close() explicitly.
     const splitter = new TextSplitterStream();
-    const audioStream = engine.stream(splitter, { voice: DEFAULT_VOICE });
+    const audioStream = engine.stream(splitter, {
+      voice: DEFAULT_VOICE,
+      speed,
+    });
 
     splitter.push(text);
     splitter.close();

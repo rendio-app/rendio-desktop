@@ -1,5 +1,6 @@
-import { Eye, EyeOff, RefreshCw } from "lucide-react";
+import { Eye, EyeOff, Monitor, Moon, RefreshCw, Sun } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -61,6 +62,7 @@ export function SettingsDialog({
   onOpenChange,
   onSaved,
 }: SettingsDialogProps) {
+  const { theme, setTheme } = useTheme();
   const [settings, setSettings] = useState<Settings>({
     apiEndpoint: "https://api.openai.com/v1/chat/completions",
     apiKey: "",
@@ -68,6 +70,7 @@ export function SettingsDialog({
     systemPrompt:
       "You are a professional translator. Translate the text considering context, idiomatic expressions, and common usage patterns. Produce natural, fluent output as a native speaker of the target language would express it. Do not translate word-by-word; convey the intended meaning. Output only the translated text.",
     shortcutKey: "CommandOrControl+J",
+    ttsSpeed: 1,
   });
   const [showApiKey, setShowApiKey] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -192,6 +195,29 @@ export function SettingsDialog({
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
           <div className="grid gap-2">
+            <Label>Theme</Label>
+            <Select value={theme} onValueChange={setTheme}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="light">
+                  <Sun className="mr-2 inline size-4" />
+                  Light
+                </SelectItem>
+                <SelectItem value="dark">
+                  <Moon className="mr-2 inline size-4" />
+                  Dark
+                </SelectItem>
+                <SelectItem value="system">
+                  <Monitor className="mr-2 inline size-4" />
+                  System
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
             <Label htmlFor="apiEndpoint">API Endpoint</Label>
             <Input
               id="apiEndpoint"
@@ -280,6 +306,25 @@ export function SettingsDialog({
             {errors.systemPrompt && (
               <p className="text-sm text-destructive">{errors.systemPrompt}</p>
             )}
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Speech Speed</Label>
+            <Select
+              value={String(settings.ttsSpeed)}
+              onValueChange={(v) =>
+                setSettings((prev) => ({ ...prev, ttsSpeed: Number(v) }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0.8">Slow</SelectItem>
+                <SelectItem value="1">Normal</SelectItem>
+                <SelectItem value="1.2">Fast</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid gap-2">

@@ -33,14 +33,14 @@ export function useTTS() {
   }, []);
 
   const play = useCallback(
-    async (text: string) => {
+    async (text: string, speed = 1) => {
       stop();
       isStoppingRef.current = false;
       setError(null);
       setState("loading");
 
       try {
-        const ttsStream = createTTSStream(text);
+        const ttsStream = createTTSStream(text, speed);
         ttsStreamRef.current = ttsStream;
 
         if (!audioCtxRef.current) {
