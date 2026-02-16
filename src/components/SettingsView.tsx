@@ -188,7 +188,10 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby={undefined} className="flex max-h-[80vh] flex-col sm:max-w-lg">
+      <DialogContent
+        aria-describedby={undefined}
+        className="flex max-h-[80vh] flex-col sm:max-w-lg"
+      >
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
