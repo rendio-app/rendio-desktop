@@ -245,10 +245,11 @@ export function SettingsDialog({
                     key={t.name}
                     type="button"
                     title={t.title}
-                    className={`flex size-6 items-center justify-center rounded-full transition-shadow ${isActive
+                    className={`flex size-6 items-center justify-center rounded-full transition-shadow ${
+                      isActive
                         ? "ring-primary ring-2 ring-offset-2 ring-offset-background"
                         : ""
-                      }`}
+                    }`}
                     style={{ backgroundColor: dotColor }}
                     onClick={() => setColorTheme(t.name)}
                   >
