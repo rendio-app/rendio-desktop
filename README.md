@@ -33,6 +33,7 @@ npm start
 | `npm run lint` | Biome によるコードチェック |
 | `npm run lint:fix` | リントエラーの自動修正 |
 | `npm run format` | コードのフォーマット |
+| `npm run knip` | 未使用の依存・エクスポートの検出 |
 
 ## 外部通信について
 
@@ -44,7 +45,7 @@ npm start
 
 - 翻訳対象のテキスト
 - システムプロンプト（翻訳指示）
-- モデル名（デフォルト: `gpt-4o`）
+- モデル名
 
 API キーは設定画面から入力し、`~/Library/Application Support/Rendio/settings.json` にローカル保存されます。API キーは OpenAI のサーバーへの認証にのみ使用され、それ以外の外部サービスには送信されません。
 
