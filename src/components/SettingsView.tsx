@@ -45,7 +45,7 @@ export function SettingsView({ onBack }: SettingsViewProps) {
     apiKey: "",
     model: "gpt-4o",
     systemPrompt:
-      "You are a professional translator. Translate the given text accurately and naturally. Output only the translation without any explanation.",
+      "You are a professional translator. Translate the text considering context, idiomatic expressions, and common usage patterns. Produce natural, fluent output as a native speaker of the target language would express it. Do not translate word-by-word; convey the intended meaning. Output only the translated text.",
     shortcutKey: "CommandOrControl+J",
   });
   const [showApiKey, setShowApiKey] = useState(false);
