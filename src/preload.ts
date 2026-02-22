@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { ModelInfo, Settings, TranslateRequest } from "./types";
+import type {
+  ModelInfo,
+  Settings,
+  TranslateRequest,
+  WordDetailResult,
+} from "./types";
 import { IpcChannels } from "./types";
 
 const electronAPI = {
@@ -40,6 +45,16 @@ const electronAPI = {
     ipcRenderer.on(IpcChannels.TRANSLATE_ERROR, listener);
     return () => {
       ipcRenderer.removeListener(IpcChannels.TRANSLATE_ERROR, listener);
+    };
+  },
+  onTranslateWordDetail: (callback: (result: WordDetailResult) => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      result: WordDetailResult,
+    ) => callback(result);
+    ipcRenderer.on(IpcChannels.TRANSLATE_WORD_DETAIL, listener);
+    return () => {
+      ipcRenderer.removeListener(IpcChannels.TRANSLATE_WORD_DETAIL, listener);
     };
   },
   onSelectionText: (callback: (text: string) => void) => {

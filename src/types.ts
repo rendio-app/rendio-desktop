@@ -23,6 +23,19 @@ export type TranslationDirection = "ja-to-en" | "en-to-ja";
 export interface TranslateRequest {
   text: string;
   direction: TranslationDirection;
+  mode?: "normal" | "word-detail";
+}
+
+export interface ExampleSentence {
+  en: string;
+  ja: string;
+}
+
+export interface WordDetailResult {
+  word: string;
+  translation: string;
+  partsOfSpeech: { name: string; meaning: string }[];
+  examples: ExampleSentence[];
 }
 
 export const IpcChannels = {
@@ -37,6 +50,7 @@ export const IpcChannels = {
   CLIPBOARD_COPY: "clipboard:copy",
   SHORTCUT_SUSPEND: "shortcut:suspend",
   SHORTCUT_RESUME: "shortcut:resume",
+  TRANSLATE_WORD_DETAIL: "translate:word-detail",
   MODELS_GET: "models:get",
 } as const;
 

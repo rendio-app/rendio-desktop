@@ -1,27 +1,85 @@
-import { ArrowRightLeft, Copy, Settings } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRightLeft, Copy, Loader2, Settings } from "lucide-react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SettingsDialog } from "@/components/SettingsView";
 import { SpeakButton } from "@/components/SpeakButton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { WordDetailView } from "@/components/WordDetailView";
 import { useTTS } from "@/hooks/useTTS";
-import type { TranslationDirection } from "@/types";
+import type { TranslationDirection, WordDetailResult } from "@/types";
 
 const JAPANESE_REGEX = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/;
+const SINGLE_WORD_REGEX = /^[a-zA-Z]+(?:-[a-zA-Z]+)*$/;
 
 function detectDirection(text: string): TranslationDirection {
   return JAPANESE_REGEX.test(text) ? "ja-to-en" : "en-to-ja";
 }
 
+type TranslationState = {
+  sourceText: string;
+  resultText: string;
+  wordDetail: WordDetailResult | null;
+  direction: TranslationDirection;
+  isTranslating: boolean;
+  error: string;
+};
+
+type TranslationAction =
+  | { type: "SET_SOURCE"; text: string }
+  | { type: "START"; text: string; direction: TranslationDirection }
+  | { type: "CHUNK"; chunk: string }
+  | { type: "DONE" }
+  | { type: "ERROR"; error: string }
+  | { type: "WORD_DETAIL"; detail: WordDetailResult }
+  | { type: "CANCEL" }
+  | { type: "TOGGLE_DIRECTION" };
+
+function translationReducer(
+  state: TranslationState,
+  action: TranslationAction,
+): TranslationState {
+  switch (action.type) {
+    case "SET_SOURCE":
+      return { ...state, sourceText: action.text };
+    case "START":
+      return {
+        ...state,
+        sourceText: action.text,
+        resultText: "",
+        wordDetail: null,
+        error: "",
+        isTranslating: true,
+        direction: action.direction,
+      };
+    case "CHUNK":
+      return { ...state, resultText: state.resultText + action.chunk };
+    case "DONE":
+      return { ...state, isTranslating: false };
+    case "ERROR":
+      return { ...state, isTranslating: false, error: action.error };
+    case "WORD_DETAIL":
+      return { ...state, wordDetail: action.detail };
+    case "CANCEL":
+      return { ...state, isTranslating: false };
+    case "TOGGLE_DIRECTION":
+      return {
+        ...state,
+        direction: state.direction === "ja-to-en" ? "en-to-ja" : "ja-to-en",
+      };
+  }
+}
+
 export function TranslateView() {
-  const [sourceText, setSourceText] = useState("");
-  const [resultText, setResultText] = useState("");
-  const [direction, setDirection] = useState<TranslationDirection>("en-to-ja");
-  const [isTranslating, setIsTranslating] = useState(false);
-  const [error, setError] = useState("");
+  const [state, dispatch] = useReducer(translationReducer, {
+    sourceText: "",
+    resultText: "",
+    wordDetail: null,
+    direction: "en-to-ja" as TranslationDirection,
+    isTranslating: false,
+    error: "",
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const resultRef = useRef("");
   const ttsSpeedRef = useRef(1);
   const tts = useTTS();
 
@@ -31,58 +89,51 @@ export function TranslateView() {
     });
   }, []);
 
-  const startTranslation = useCallback(
-    (text?: string) => {
-      const input = text ?? sourceText;
-      if (!input.trim()) return;
+  const startTranslation = useCallback((text: string) => {
+    if (!text.trim()) return;
 
-      setIsTranslating(true);
-      setResultText("");
-      setError("");
-      resultRef.current = "";
+    const dir = detectDirection(text);
+    const trimmed = text.trim();
+    const mode =
+      dir === "en-to-ja" && SINGLE_WORD_REGEX.test(trimmed)
+        ? "word-detail"
+        : "normal";
 
-      const dir = detectDirection(input);
-      setDirection(dir);
-
-      window.electronAPI.translateStart({ text: input, direction: dir });
-    },
-    [sourceText],
-  );
+    dispatch({ type: "START", text, direction: dir });
+    window.electronAPI.translateStart({ text: trimmed, direction: dir, mode });
+  }, []);
 
   useEffect(() => {
     const unsubChunk = window.electronAPI.onTranslateChunk((chunk) => {
-      resultRef.current += chunk;
-      setResultText(resultRef.current);
+      dispatch({ type: "CHUNK", chunk });
     });
 
     const unsubDone = window.electronAPI.onTranslateDone(() => {
-      setIsTranslating(false);
+      dispatch({ type: "DONE" });
     });
 
     const unsubError = window.electronAPI.onTranslateError((err) => {
-      setIsTranslating(false);
-      setError(err);
+      dispatch({ type: "ERROR", error: err });
     });
 
-    const unsubSelection = window.electronAPI.onSelectionText((text) => {
-      setSourceText(text);
-      setResultText("");
-      setError("");
-      resultRef.current = "";
-      setIsTranslating(true);
+    const unsubWordDetail = window.electronAPI.onTranslateWordDetail(
+      (result) => {
+        dispatch({ type: "WORD_DETAIL", detail: result });
+      },
+    );
 
-      const dir = detectDirection(text);
-      setDirection(dir);
-      window.electronAPI.translateStart({ text, direction: dir });
+    const unsubSelection = window.electronAPI.onSelectionText((text) => {
+      startTranslation(text);
     });
 
     return () => {
       unsubChunk();
       unsubDone();
       unsubError();
+      unsubWordDetail();
       unsubSelection();
     };
-  }, []);
+  }, [startTranslation]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -98,57 +149,89 @@ export function TranslateView() {
 
   const handleCancel = () => {
     window.electronAPI.translateCancel();
-    setIsTranslating(false);
+    dispatch({ type: "CANCEL" });
   };
 
   const handleCopy = () => {
-    if (resultText) {
-      window.electronAPI.clipboardCopy(resultText);
+    if (state.wordDetail) {
+      const lines = [
+        `${state.wordDetail.word} - ${state.wordDetail.translation}`,
+      ];
+      if (state.wordDetail.partsOfSpeech.length > 0) {
+        lines.push(
+          "",
+          state.wordDetail.partsOfSpeech
+            .map((p) => `【${p.name}】${p.meaning}`)
+            .join("\n"),
+        );
+      }
+      if (state.wordDetail.examples.length > 0) {
+        lines.push(
+          "",
+          state.wordDetail.examples.map((e) => `${e.en}\n${e.ja}`).join("\n\n"),
+        );
+      }
+      window.electronAPI.clipboardCopy(lines.join("\n"));
+    } else if (state.resultText) {
+      window.electronAPI.clipboardCopy(state.resultText);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      startTranslation();
+      startTranslation(state.sourceText);
     }
   };
 
-  const toggleDirection = () => {
-    setDirection((prev) => (prev === "ja-to-en" ? "en-to-ja" : "ja-to-en"));
-  };
-
   const directionLabel =
-    direction === "ja-to-en" ? "Japanese → English" : "English → Japanese";
+    state.direction === "ja-to-en"
+      ? "Japanese → English"
+      : "English → Japanese";
 
   return (
     <div className="flex h-screen flex-col p-4 gap-3">
       <Textarea
         placeholder="Enter text to translate... (Cmd+Enter to translate)"
-        value={sourceText}
-        onChange={(e) => setSourceText(e.target.value)}
+        value={state.sourceText}
+        onChange={(e) => dispatch({ type: "SET_SOURCE", text: e.target.value })}
         onKeyDown={handleKeyDown}
         className="min-h-24 flex-1 resize-none"
       />
 
       <div className="flex items-center justify-center gap-2">
-        <Button variant="outline" size="sm" onClick={toggleDirection}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => dispatch({ type: "TOGGLE_DIRECTION" })}
+        >
           <ArrowRightLeft className="size-4" />
           {directionLabel}
         </Button>
       </div>
 
-      <Textarea
-        placeholder="Translation will appear here..."
-        value={resultText}
-        readOnly
-        className="min-h-24 flex-1 resize-none"
-      />
+      {state.isTranslating && !state.resultText && !state.wordDetail ? (
+        <div className="flex min-h-24 flex-1 items-center justify-center">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : state.wordDetail ? (
+        <WordDetailView
+          result={state.wordDetail}
+          isLoading={state.isTranslating}
+        />
+      ) : (
+        <Textarea
+          placeholder="Translation will appear here..."
+          value={state.resultText}
+          readOnly
+          className="min-h-24 flex-1 resize-none"
+        />
+      )}
 
-      {(error || tts.error) && (
+      {(state.error || tts.error) && (
         <p className="text-sm text-destructive">
-          {error || tts.error}{" "}
-          {error?.includes("API Key") && (
+          {state.error || tts.error}{" "}
+          {state.error?.includes("API Key") && (
             <button
               type="button"
               className="underline"
@@ -169,7 +252,7 @@ export function TranslateView() {
           <Settings className="size-5" />
         </Button>
         <div className="flex flex-1 gap-2">
-          {isTranslating ? (
+          {state.isTranslating ? (
             <Button
               variant="destructive"
               className="flex-1"
@@ -180,8 +263,8 @@ export function TranslateView() {
           ) : (
             <Button
               className="flex-1"
-              onClick={() => startTranslation()}
-              disabled={!sourceText.trim()}
+              onClick={() => startTranslation(state.sourceText)}
+              disabled={!state.sourceText.trim()}
             >
               Translate
             </Button>
@@ -190,16 +273,24 @@ export function TranslateView() {
             state={tts.state}
             onPlay={() =>
               tts.play(
-                direction === "en-to-ja" ? sourceText : resultText,
+                state.direction === "en-to-ja"
+                  ? state.sourceText
+                  : state.resultText,
                 ttsSpeedRef.current,
               )
             }
             onStop={tts.stop}
             disabled={
-              direction === "en-to-ja" ? !sourceText.trim() : !resultText
+              state.direction === "en-to-ja"
+                ? !state.sourceText.trim()
+                : !state.resultText
             }
           />
-          <Button variant="outline" onClick={handleCopy} disabled={!resultText}>
+          <Button
+            variant="outline"
+            onClick={handleCopy}
+            disabled={!state.resultText && !state.wordDetail}
+          >
             <Copy className="size-4" />
             Copy
           </Button>
