@@ -462,6 +462,9 @@ export function SettingsDialog({
               );
               setPressedModifiers(new Set());
             }}
+            onClear={() =>
+              setSettings((prev) => ({ ...prev, shortcutKey: "" }))
+            }
           />
 
           <ShortcutKeyField
