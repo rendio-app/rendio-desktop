@@ -9,16 +9,24 @@ export function registerShortcut(win: BrowserWindow): void {
   const settings = getSettings();
   const key = settings.shortcutKey;
 
-  if (!key) return;
+  if (key) {
+    globalShortcut.register(key, async () => {
+      const text = await getSelectionText();
+      win.show();
+      win.focus();
+      if (text) {
+        win.webContents.send(IpcChannels.SELECTION_TEXT, text);
+      }
+    });
+  }
 
-  globalShortcut.register(key, async () => {
-    const text = await getSelectionText();
-    win.show();
-    win.focus();
-    if (text) {
-      win.webContents.send(IpcChannels.SELECTION_TEXT, text);
-    }
-  });
+  const openKey = settings.openAppShortcutKey;
+  if (openKey) {
+    globalShortcut.register(openKey, () => {
+      win.show();
+      win.focus();
+    });
+  }
 }
 
 export function unregisterAllShortcuts(): void {

@@ -67,6 +67,74 @@ function toAccelerator(e: KeyboardEvent): string {
   return parts.join("+");
 }
 
+type ShortcutKeyFieldProps = {
+  label: string;
+  description: string;
+  value: string;
+  isRecording: boolean;
+  activeDisplayKeys: string[];
+  onToggleRecording: () => void;
+  onClear?: () => void;
+};
+
+function ShortcutKeyField({
+  label,
+  description,
+  value,
+  isRecording,
+  activeDisplayKeys,
+  onToggleRecording,
+  onClear,
+}: ShortcutKeyFieldProps) {
+  return (
+    <div className="grid gap-2">
+      <Label>{label}</Label>
+      <p className="text-muted-foreground text-sm">{description}</p>
+      <div className="flex items-center gap-2">
+        <div className="border-input flex h-9 flex-1 items-center rounded-md border px-3">
+          {isRecording ? (
+            activeDisplayKeys.length > 0 ? (
+              <KbdGroup>
+                {activeDisplayKeys.map((key) => (
+                  <Kbd key={key}>{key}</Kbd>
+                ))}
+              </KbdGroup>
+            ) : (
+              <span className="text-muted-foreground text-sm">
+                Press a key combination...
+              </span>
+            )
+          ) : value ? (
+            <KbdGroup>
+              {parseAccelerator(value).map((key) => (
+                <Kbd key={key}>{key}</Kbd>
+              ))}
+            </KbdGroup>
+          ) : (
+            <span className="text-muted-foreground text-sm">Not set</span>
+          )}
+        </div>
+        <Button
+          variant={isRecording ? "destructive" : "outline"}
+          onClick={onToggleRecording}
+        >
+          {isRecording ? "Cancel" : "Record"}
+        </Button>
+        {onClear && value && !isRecording && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClear}
+            title="Clear shortcut"
+          >
+            &times;
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function SettingsDialog({
   open,
   onOpenChange,
@@ -81,10 +149,13 @@ export function SettingsDialog({
     systemPrompt:
       "You are a professional translator. Translate the text considering context, idiomatic expressions, and common usage patterns. Produce natural, fluent output as a native speaker of the target language would express it. Do not translate word-by-word; convey the intended meaning. Output only the translated text.",
     shortcutKey: "CommandOrControl+J",
+    openAppShortcutKey: "",
     ttsSpeed: 1,
   });
   const [showApiKey, setShowApiKey] = useState(false);
-  const [recording, setRecording] = useState(false);
+  const [recordingTarget, setRecordingTarget] = useState<
+    "shortcutKey" | "openAppShortcutKey" | null
+  >(null);
   const [pressedModifiers, setPressedModifiers] = useState<Set<string>>(
     new Set(),
   );
@@ -118,7 +189,7 @@ export function SettingsDialog({
       });
       setErrors({});
       setShowApiKey(false);
-      setRecording(false);
+      setRecordingTarget(null);
       setPressedModifiers(new Set());
     } else {
       setModels([]);
@@ -126,7 +197,7 @@ export function SettingsDialog({
   }, [open, fetchModels]);
 
   useEffect(() => {
-    if (!recording) return;
+    if (!recordingTarget) return;
 
     window.electronAPI.shortcutSuspend();
 
@@ -140,8 +211,8 @@ export function SettingsDialog({
       }
 
       const accelerator = toAccelerator(e);
-      setSettings((prev) => ({ ...prev, shortcutKey: accelerator }));
-      setRecording(false);
+      setSettings((prev) => ({ ...prev, [recordingTarget]: accelerator }));
+      setRecordingTarget(null);
       setPressedModifiers(new Set());
     };
 
@@ -167,7 +238,7 @@ export function SettingsDialog({
       window.removeEventListener("blur", handleBlur);
       window.electronAPI.shortcutResume();
     };
-  }, [recording]);
+  }, [recordingTarget]);
 
   const handleSave = async () => {
     const result = settingsSchema.safeParse(settings);
@@ -379,44 +450,39 @@ export function SettingsDialog({
             </Select>
           </div>
 
-          <div className="grid gap-2">
-            <Label>Instant Translate Shortcut Key</Label>
-            <p className="text-muted-foreground text-sm">
-              Instantly translate selected text from any application.
-            </p>
-            <div className="flex items-center gap-2">
-              <div className="border-input flex h-9 flex-1 items-center rounded-md border px-3">
-                {recording ? (
-                  activeDisplayKeys.length > 0 ? (
-                    <KbdGroup>
-                      {activeDisplayKeys.map((key) => (
-                        <Kbd key={key}>{key}</Kbd>
-                      ))}
-                    </KbdGroup>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">
-                      Press a key combination...
-                    </span>
-                  )
-                ) : (
-                  <KbdGroup>
-                    {parseAccelerator(settings.shortcutKey).map((key) => (
-                      <Kbd key={key}>{key}</Kbd>
-                    ))}
-                  </KbdGroup>
-                )}
-              </div>
-              <Button
-                variant={recording ? "destructive" : "outline"}
-                onClick={() => {
-                  setRecording((prev) => !prev);
-                  setPressedModifiers(new Set());
-                }}
-              >
-                {recording ? "Cancel" : "Record"}
-              </Button>
-            </div>
-          </div>
+          <ShortcutKeyField
+            label="Instant Translate Shortcut Key"
+            description="Instantly translate selected text from any application."
+            value={settings.shortcutKey}
+            isRecording={recordingTarget === "shortcutKey"}
+            activeDisplayKeys={activeDisplayKeys}
+            onToggleRecording={() => {
+              setRecordingTarget((prev) =>
+                prev === "shortcutKey" ? null : "shortcutKey",
+              );
+              setPressedModifiers(new Set());
+            }}
+          />
+
+          <ShortcutKeyField
+            label="Open App Shortcut Key"
+            description="Show and focus the app window from anywhere."
+            value={settings.openAppShortcutKey}
+            isRecording={recordingTarget === "openAppShortcutKey"}
+            activeDisplayKeys={activeDisplayKeys}
+            onToggleRecording={() => {
+              setRecordingTarget((prev) =>
+                prev === "openAppShortcutKey" ? null : "openAppShortcutKey",
+              );
+              setPressedModifiers(new Set());
+            }}
+            onClear={() =>
+              setSettings((prev) => ({
+                ...prev,
+                openAppShortcutKey: "",
+              }))
+            }
+          />
         </div>
 
         <DialogFooter>
