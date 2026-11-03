@@ -32,9 +32,20 @@ const config: ForgeConfig = {
       const appBundle = readdirSync(outDir).find((f) => f.endsWith(".app"));
       if (!appBundle) return;
       const appPath = `${outDir}/${appBundle}`;
-      console.log(`Signing ${appPath} ...`);
-      execFileSync("codesign", ["--force", "--deep", "--sign", "-", appPath]);
-      console.log("Ad-hoc signing complete.");
+      // A certificate identity keeps macOS permissions (Accessibility, Keychain)
+      // valid across rebuilds; ad-hoc signatures change with every build.
+      const identity = process.env.RENDIO_SIGN_IDENTITY || "-";
+      console.log(
+        `Signing ${appPath} with ${identity === "-" ? "ad-hoc" : identity} ...`,
+      );
+      execFileSync("codesign", [
+        "--force",
+        "--deep",
+        "--sign",
+        identity,
+        appPath,
+      ]);
+      console.log("Signing complete.");
     },
   },
   rebuildConfig: {},

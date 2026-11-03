@@ -24,34 +24,45 @@ const electronAPI = {
       ModelInfo[]
     >,
 
-  onTranslateChunk: (callback: (chunk: string) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, chunk: string) =>
-      callback(chunk);
+  // Translate events carry the id of the TranslateRequest they belong to.
+  onTranslateChunk: (callback: (requestId: number, chunk: string) => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      requestId: number,
+      chunk: string,
+    ) => callback(requestId, chunk);
     ipcRenderer.on(IpcChannels.TRANSLATE_CHUNK, listener);
     return () => {
       ipcRenderer.removeListener(IpcChannels.TRANSLATE_CHUNK, listener);
     };
   },
-  onTranslateDone: (callback: () => void) => {
-    const listener = () => callback();
+  onTranslateDone: (callback: (requestId: number) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, requestId: number) =>
+      callback(requestId);
     ipcRenderer.on(IpcChannels.TRANSLATE_DONE, listener);
     return () => {
       ipcRenderer.removeListener(IpcChannels.TRANSLATE_DONE, listener);
     };
   },
-  onTranslateError: (callback: (error: string) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, error: string) =>
-      callback(error);
+  onTranslateError: (callback: (requestId: number, error: string) => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      requestId: number,
+      error: string,
+    ) => callback(requestId, error);
     ipcRenderer.on(IpcChannels.TRANSLATE_ERROR, listener);
     return () => {
       ipcRenderer.removeListener(IpcChannels.TRANSLATE_ERROR, listener);
     };
   },
-  onTranslateWordDetail: (callback: (result: WordDetailResult) => void) => {
+  onTranslateWordDetail: (
+    callback: (requestId: number, result: WordDetailResult) => void,
+  ) => {
     const listener = (
       _event: Electron.IpcRendererEvent,
+      requestId: number,
       result: WordDetailResult,
-    ) => callback(result);
+    ) => callback(requestId, result);
     ipcRenderer.on(IpcChannels.TRANSLATE_WORD_DETAIL, listener);
     return () => {
       ipcRenderer.removeListener(IpcChannels.TRANSLATE_WORD_DETAIL, listener);

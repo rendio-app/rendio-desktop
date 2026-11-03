@@ -15,6 +15,8 @@ export const settingsSchema = z.object({
   shortcutKey: z.string().default("CommandOrControl+J"),
   openAppShortcutKey: z.string().default(""),
   ttsSpeed: z.number().default(1),
+  // "none" sends `reasoning_effort: "none"` to turn model thinking off.
+  reasoningEffort: z.enum(["default", "none"]).default("default"),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -22,6 +24,8 @@ export type Settings = z.infer<typeof settingsSchema>;
 export type TranslationDirection = "ja-to-en" | "en-to-ja";
 
 export interface TranslateRequest {
+  /** Echoed back on every translate:* event so stale events can be ignored. */
+  id: number;
   text: string;
   direction: TranslationDirection;
   mode?: "normal" | "word-detail";

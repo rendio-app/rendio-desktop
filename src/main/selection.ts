@@ -11,6 +11,26 @@ export function ensureAccessibility(): boolean {
   return systemPreferences.isTrustedAccessibilityClient(true);
 }
 
+// How long to wait for the frontmost app to put the copied text on the
+// clipboard after Cmd+C is sent. Polling returns as soon as text appears.
+const COPY_TIMEOUT_MS = 250;
+const COPY_POLL_INTERVAL_MS = 10;
+
+function waitForClipboardText(): Promise<string> {
+  const deadline = Date.now() + COPY_TIMEOUT_MS;
+  return new Promise((resolve) => {
+    const poll = () => {
+      const text = clipboard.readText();
+      if (text || Date.now() >= deadline) {
+        resolve(text);
+        return;
+      }
+      setTimeout(poll, COPY_POLL_INTERVAL_MS);
+    };
+    poll();
+  });
+}
+
 function getSelectionText(): Promise<string> {
   if (
     process.platform === "darwin" &&
@@ -28,17 +48,16 @@ function getSelectionText(): Promise<string> {
       tell application "System Events"
         keystroke "c" using command down
       end tell
-      delay 0.2
     `;
 
-    execFile("/usr/bin/osascript", ["-e", script], (error) => {
+    execFile("/usr/bin/osascript", ["-e", script], async (error) => {
       if (error) {
         clipboard.writeText(previousClipboard);
         resolve("");
         return;
       }
 
-      const selectedText = clipboard.readText();
+      const selectedText = await waitForClipboardText();
       clipboard.writeText(previousClipboard);
       resolve(selectedText);
     });

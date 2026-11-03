@@ -35,6 +35,22 @@ npm start
 | `npm run format` | コードのフォーマット |
 | `npm run knip` | 未使用の依存・エクスポートの検出 |
 
+### macOS アプリとしてインストール
+
+```bash
+# コード署名 ID を指定してパッケージング（未指定なら ad-hoc 署名）
+RENDIO_SIGN_IDENTITY="Apple Development: <名前> (<ID>)" npm run package
+
+# /Applications にコピー
+ditto out/Rendio-darwin-arm64/Rendio.app /Applications/Rendio.app
+```
+
+証明書（Xcode の無料 Personal Team の「Apple Development」でも可）で署名すると、再ビルドしてもアクセシビリティ許可が維持されます。ad-hoc 署名の場合は、ビルドのたびに「システム設定 > プライバシーとセキュリティ > アクセシビリティ」で Rendio を削除して許可し直す必要があります。詳細は [docs/forge-config.md](docs/forge-config.md) を参照してください。
+
+### 翻訳を速くする設定
+
+設定画面の **Reasoning** を **Off** にすると、API に `reasoning_effort: "none"` を送り、モデルの思考（thinking）を無効にします。最初の文字が表示されるまでの時間が短くなります。対応していない API でエラーになる場合は Default に戻してください。
+
 ## 外部通信について
 
 本アプリは以下の外部サービスと通信を行います。

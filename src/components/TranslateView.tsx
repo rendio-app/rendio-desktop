@@ -1,19 +1,38 @@
-import { ArrowRightLeft, Copy, Loader2, Settings } from "lucide-react";
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { Copy, Loader2, Settings } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { SettingsDialog } from "@/components/SettingsView";
 import { SpeakButton } from "@/components/SpeakButton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { WordDetailView } from "@/components/WordDetailView";
 import { useTTS } from "@/hooks/useTTS";
 import type { TranslationDirection, WordDetailResult } from "@/types";
 
-const JAPANESE_REGEX = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/;
 const SINGLE_WORD_REGEX = /^[a-zA-Z]+(?:-[a-zA-Z]+)*$/;
 
-function detectDirection(text: string): TranslationDirection {
-  return JAPANESE_REGEX.test(text) ? "ja-to-en" : "en-to-ja";
+const DIRECTION_STORAGE_KEY = "rendio-translation-direction";
+
+// The order here is the on-screen order; `key` is the ⌘/Ctrl + digit shortcut.
+const DIRECTION_OPTIONS: readonly {
+  value: TranslationDirection;
+  label: string;
+  key: string;
+}[] = [
+  { value: "en-to-ja", label: "English → Japanese", key: "1" },
+  { value: "ja-to-en", label: "Japanese → English", key: "2" },
+];
+
+function isTranslationDirection(value: unknown): value is TranslationDirection {
+  return DIRECTION_OPTIONS.some((option) => option.value === value);
 }
 
 type TranslationState = {
@@ -25,6 +44,18 @@ type TranslationState = {
   error: string;
 };
 
+function initTranslationState(): TranslationState {
+  const saved = localStorage.getItem(DIRECTION_STORAGE_KEY);
+  return {
+    sourceText: "",
+    resultText: "",
+    wordDetail: null,
+    direction: isTranslationDirection(saved) ? saved : "en-to-ja",
+    isTranslating: false,
+    error: "",
+  };
+}
+
 type TranslationAction =
   | { type: "SET_SOURCE"; text: string }
   | { type: "START"; text: string; direction: TranslationDirection }
@@ -33,7 +64,7 @@ type TranslationAction =
   | { type: "ERROR"; error: string }
   | { type: "WORD_DETAIL"; detail: WordDetailResult }
   | { type: "CANCEL" }
-  | { type: "TOGGLE_DIRECTION" };
+  | { type: "SET_DIRECTION"; direction: TranslationDirection };
 
 function translationReducer(
   state: TranslationState,
@@ -62,25 +93,28 @@ function translationReducer(
       return { ...state, wordDetail: action.detail };
     case "CANCEL":
       return { ...state, isTranslating: false };
-    case "TOGGLE_DIRECTION":
+    case "SET_DIRECTION":
+      // A previous result no longer matches the new direction.
       return {
         ...state,
-        direction: state.direction === "ja-to-en" ? "en-to-ja" : "ja-to-en",
+        direction: action.direction,
+        resultText: "",
+        wordDetail: null,
+        error: "",
       };
   }
 }
 
 export function TranslateView() {
-  const [state, dispatch] = useReducer(translationReducer, {
-    sourceText: "",
-    resultText: "",
-    wordDetail: null,
-    direction: "en-to-ja" as TranslationDirection,
-    isTranslating: false,
-    error: "",
-  });
+  const [state, dispatch] = useReducer(
+    translationReducer,
+    undefined,
+    initTranslationState,
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const ttsSpeedRef = useRef(1);
+  // Id of the translation whose events are currently accepted.
+  const requestIdRef = useRef(0);
   const tts = useTTS();
 
   useEffect(() => {
@@ -89,41 +123,91 @@ export function TranslateView() {
     });
   }, []);
 
-  const startTranslation = useCallback((text: string) => {
-    if (!text.trim()) return;
+  useEffect(() => {
+    localStorage.setItem(DIRECTION_STORAGE_KEY, state.direction);
+  }, [state.direction]);
 
-    const dir = detectDirection(text);
-    const trimmed = text.trim();
-    const mode =
-      dir === "en-to-ja" && SINGLE_WORD_REGEX.test(trimmed)
-        ? "word-detail"
-        : "normal";
+  const startTranslation = useCallback(
+    (text: string, direction: TranslationDirection) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
 
-    dispatch({ type: "START", text, direction: dir });
-    window.electronAPI.translateStart({ text: trimmed, direction: dir, mode });
-  }, []);
+      const mode =
+        direction === "en-to-ja" && SINGLE_WORD_REGEX.test(trimmed)
+          ? "word-detail"
+          : "normal";
+
+      requestIdRef.current += 1;
+      dispatch({ type: "START", text, direction });
+      window.electronAPI.translateStart({
+        id: requestIdRef.current,
+        text: trimmed,
+        direction,
+        mode,
+      });
+    },
+    [],
+  );
+
+  const handleCancel = () => {
+    // Ignore any events still in flight from the cancelled request.
+    requestIdRef.current += 1;
+    window.electronAPI.translateCancel();
+    dispatch({ type: "CANCEL" });
+  };
+
+  // Re-translates in the new direction if a translation is already shown
+  // (or running); otherwise only the direction changes.
+  const changeDirection = (direction: TranslationDirection) => {
+    if (direction === state.direction) return;
+
+    const hasTranslation =
+      state.isTranslating ||
+      state.resultText !== "" ||
+      state.wordDetail !== null ||
+      state.error !== "";
+
+    if (hasTranslation && state.sourceText.trim()) {
+      startTranslation(state.sourceText, direction);
+      return;
+    }
+
+    // The input was cleared while translating: stop the stale translation.
+    if (state.isTranslating) handleCancel();
+    dispatch({ type: "SET_DIRECTION", direction });
+  };
+
+  const onSelectionText = useEffectEvent((text: string) => {
+    startTranslation(text, state.direction);
+  });
 
   useEffect(() => {
-    const unsubChunk = window.electronAPI.onTranslateChunk((chunk) => {
-      dispatch({ type: "CHUNK", chunk });
+    const isCurrent = (requestId: number) => requestId === requestIdRef.current;
+
+    const unsubChunk = window.electronAPI.onTranslateChunk(
+      (requestId, chunk) => {
+        if (isCurrent(requestId)) dispatch({ type: "CHUNK", chunk });
+      },
+    );
+
+    const unsubDone = window.electronAPI.onTranslateDone((requestId) => {
+      if (isCurrent(requestId)) dispatch({ type: "DONE" });
     });
 
-    const unsubDone = window.electronAPI.onTranslateDone(() => {
-      dispatch({ type: "DONE" });
-    });
-
-    const unsubError = window.electronAPI.onTranslateError((err) => {
-      dispatch({ type: "ERROR", error: err });
+    const unsubError = window.electronAPI.onTranslateError((requestId, err) => {
+      if (isCurrent(requestId)) dispatch({ type: "ERROR", error: err });
     });
 
     const unsubWordDetail = window.electronAPI.onTranslateWordDetail(
-      (result) => {
-        dispatch({ type: "WORD_DETAIL", detail: result });
+      (requestId, result) => {
+        if (isCurrent(requestId)) {
+          dispatch({ type: "WORD_DETAIL", detail: result });
+        }
       },
     );
 
     const unsubSelection = window.electronAPI.onSelectionText((text) => {
-      startTranslation(text);
+      onSelectionText(text);
     });
 
     return () => {
@@ -133,24 +217,31 @@ export function TranslateView() {
       unsubWordDetail();
       unsubSelection();
     };
-  }, [startTranslation]);
+  }, []);
+
+  const onWindowKeyDown = useEffectEvent((e: KeyboardEvent) => {
+    if (!(e.metaKey || e.ctrlKey)) return;
+
+    if (e.key === ",") {
+      e.preventDefault();
+      setSettingsOpen(true);
+      return;
+    }
+
+    // While Settings is open, digits may be part of a shortcut being recorded.
+    if (settingsOpen || e.altKey || e.shiftKey || e.repeat) return;
+    const option = DIRECTION_OPTIONS.find((o) => o.key === e.key);
+    if (option) {
+      e.preventDefault();
+      changeDirection(option.value);
+    }
+  });
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
-        e.preventDefault();
-        setSettingsOpen(true);
-      }
-    };
-
+    const handleKeyDown = (e: KeyboardEvent) => onWindowKeyDown(e);
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  const handleCancel = () => {
-    window.electronAPI.translateCancel();
-    dispatch({ type: "CANCEL" });
-  };
 
   const handleCopy = () => {
     if (state.wordDetail) {
@@ -180,14 +271,9 @@ export function TranslateView() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      startTranslation(state.sourceText);
+      startTranslation(state.sourceText, state.direction);
     }
   };
-
-  const directionLabel =
-    state.direction === "ja-to-en"
-      ? "Japanese → English"
-      : "English → Japanese";
 
   return (
     <div className="flex h-screen flex-col p-4 gap-3">
@@ -199,15 +285,29 @@ export function TranslateView() {
         className="min-h-24 flex-1 resize-none"
       />
 
-      <div className="flex items-center justify-center gap-2">
-        <Button
+      <div className="flex items-center justify-center">
+        <ToggleGroup
+          type="single"
           variant="outline"
           size="sm"
-          onClick={() => dispatch({ type: "TOGGLE_DIRECTION" })}
+          aria-label="Translation direction"
+          value={state.direction}
+          onValueChange={(value) => {
+            // Radix reports "" when the active item is clicked again; keep it.
+            if (isTranslationDirection(value)) changeDirection(value);
+          }}
         >
-          <ArrowRightLeft className="size-4" />
-          {directionLabel}
-        </Button>
+          {DIRECTION_OPTIONS.map((option) => (
+            <ToggleGroupItem
+              key={option.value}
+              value={option.value}
+              title={`${option.label} (⌘${option.key})`}
+              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:hover:bg-primary/90 data-[state=on]:hover:text-primary-foreground"
+            >
+              {option.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       </div>
 
       {state.isTranslating && !state.resultText && !state.wordDetail ? (
@@ -263,7 +363,9 @@ export function TranslateView() {
           ) : (
             <Button
               className="flex-1"
-              onClick={() => startTranslation(state.sourceText)}
+              onClick={() =>
+                startTranslation(state.sourceText, state.direction)
+              }
               disabled={!state.sourceText.trim()}
             >
               Translate

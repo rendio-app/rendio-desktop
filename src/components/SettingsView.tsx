@@ -151,6 +151,7 @@ export function SettingsDialog({
     shortcutKey: "CommandOrControl+J",
     openAppShortcutKey: "",
     ttsSpeed: 1,
+    reasoningEffort: "default",
   });
   const [showApiKey, setShowApiKey] = useState(false);
   const [recordingTarget, setRecordingTarget] = useState<
@@ -416,6 +417,31 @@ export function SettingsDialog({
             {modelsError && (
               <p className="text-sm text-destructive">{modelsError}</p>
             )}
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Reasoning</Label>
+            <p className="text-muted-foreground text-sm">
+              Off turns model thinking off (reasoning_effort: none) for faster
+              translations. Use Default if your API rejects it.
+            </p>
+            <Select
+              value={settings.reasoningEffort}
+              onValueChange={(value) =>
+                setSettings((prev) => ({
+                  ...prev,
+                  reasoningEffort: value === "none" ? "none" : "default",
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="none">Off</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid gap-2">

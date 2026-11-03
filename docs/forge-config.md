@@ -90,6 +90,20 @@ postPackage: async (_config, options) => {
 - ローカルマシンでのみ有効。他のマシンにコピーすると Gatekeeper にブロックされる
 - App Store への配布や公開配布には Apple Developer ID 証明書による署名が必要
 - Fuses の改ざん防止には正式なコード署名が必要
+- 署名がビルドごとに変わる（designated requirement が `cdhash` になる）ため、再ビルドのたびに macOS のアクセシビリティ許可やキーチェーンのアクセス許可が無効になる
+
+**証明書で署名する（`RENDIO_SIGN_IDENTITY`）:**
+
+環境変数 `RENDIO_SIGN_IDENTITY` にキーチェーン内のコード署名 ID を指定すると、ad-hoc の代わりにその証明書で署名する。Xcode の無料 Personal Team で発行される「Apple Development」証明書でもよい（Apple Developer Program への加入は不要）。designated requirement が「バンドル ID＋証明書の CN」になるため、再ビルドしても許可が維持される。
+
+```bash
+# 利用可能な ID の確認
+security find-identity -v -p codesigning
+
+RENDIO_SIGN_IDENTITY="Apple Development: <名前> (<ID>)" npm run package
+```
+
+未設定の場合は従来どおり ad-hoc 署名になる。この証明書は公開配布（notarization）には使えない。
 
 ## makers
 
